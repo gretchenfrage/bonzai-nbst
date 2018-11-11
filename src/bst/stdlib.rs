@@ -1,8 +1,6 @@
 
 use super::Bst;
 
-use std::cmp::Ordering;
-use std::collections::btree_set::Iter;
 pub use std::collections::BTreeSet;
 use std::fmt::Debug;
 

@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use bonzai::*;
 
 #[derive(Debug)]
-pub struct BonzaiBst<T: Ord> {
+pub struct BonzaiBst<T: Ord + Debug> {
     tree: Tree<T, [ChildId; 2]>,
 }
 impl<T: Ord + Debug> Bst<T> for BonzaiBst<T> {
@@ -52,7 +52,7 @@ impl<T: Ord + Debug> Bst<T> for BonzaiBst<T> {
         }
     }
 }
-impl<'s, T: Ord> IntoIterator for &'s BonzaiBst<T> {
+impl<'s, T: Ord + Debug> IntoIterator for &'s BonzaiBst<T> {
     type Item = &'s T;
     type IntoIter = Iter<'s, T>;
 
@@ -86,7 +86,7 @@ fn insert_node<T: Ord>(node: NodeWriteGuard<T, [ChildId; 2]>, elem: T) -> bool {
 
 fn remove_node<'o, 't: 'o, T: Ord>(mut node: NodeOwnedGuard<'o, 't, T, [ChildId; 2]>, elem: &T)
     -> (Option<NodeOwnedGuard<'o, 't, T, [ChildId; 2]>>, bool) {
-    let recurse_into: Option<usize> = match (*node.elem()).cmp(elem) {
+    let recurse_into: Option<usize> = match elem.cmp(&*node.elem()) {
         Ordering::Equal => None,
         Ordering::Greater => Some(1),
         Ordering::Less => Some(0),
@@ -126,7 +126,7 @@ fn remove_node<'o, 't: 'o, T: Ord>(mut node: NodeOwnedGuard<'o, 't, T, [ChildId;
                     (None, true)
                 },
                 (Some(left), None) => {
-                    // only left child is present, become left child
+                    // no children, simply remove self
                     (Some(left), true)
                 },
                 (None, Some(right)) => {
@@ -156,24 +156,24 @@ fn remove_node<'o, 't: 'o, T: Ord>(mut node: NodeOwnedGuard<'o, 't, T, [ChildId;
 fn detach_leftmost<'o, 't: 'o, T: Ord>(mut node: NodeOwnedGuard<'o, 't, T, [ChildId; 2]>)
     -> (Option<NodeOwnedGuard<'o, 't, T, [ChildId; 2]>>, T) {
 
-    // try to recurse to a child
-    for branch in 0..2 {
-        let mut children = node.children();
-        match children.take_child(branch).unwrap() {
-            Some(child) => {
-                let (new_child, elem) = detach_leftmost(child);
-                if let Some(new_child) = new_child {
-                    children.put_child_tree(branch, new_child).unwrap();
-                }
-                mem::drop(children);
-                return (Some(node), elem);
-            },
-            None => (),
+    let mut children = node.children();
+    match children.take_child(0).unwrap() {
+        Some(left_child) => {
+            // try to recurse to the left child
+            let (new_child, elem) = detach_leftmost(left_child);
+            if let Some(new_child) = new_child {
+                children.put_child_tree(0, new_child).unwrap();
+            }
+            mem::drop(children);
+            return (Some(node), elem);
+        },
+        None => {
+            // if no left child exists, detach this elem, and become right child, if present
+            let right_child = children.take_child(1).unwrap();
+            mem::drop(children);
+            (right_child, node.into_elem())
         }
     }
-
-    // if unable, detach self
-    (None, node.into_elem())
 }
 
 fn node_contains<T: Ord>(node: NodeReadGuard<T, [ChildId; 2]>, elem: &T) -> bool {
@@ -190,10 +190,10 @@ fn node_contains<T: Ord>(node: NodeReadGuard<T, [ChildId; 2]>, elem: &T) -> bool
     }
 }
 
-pub struct Iter<'t, T: Ord> {
+pub struct Iter<'t, T: Ord + Debug> {
     traverser: Option<TreeReadTraverser<'t, T, [ChildId; 2]>>
 }
-impl<'t, T: Ord> Iter<'t, T> {
+impl<'t, T: Ord + Debug> Iter<'t, T> {
     fn new(mut trav: TreeReadTraverser<'t, T, [ChildId; 2]>) -> Self {
         // initially seek the leftmost node
         Self::seek_leftmost(&mut trav);
@@ -212,7 +212,7 @@ impl<'t, T: Ord> Iter<'t, T> {
         } {}
     }
 }
-impl<'t, T: Ord> Iterator for Iter<'t, T> {
+impl<'t, T: Ord + Debug> Iterator for Iter<'t, T> {
     type Item = &'t T;
 
     fn next(&mut self) -> Option<&'t T> {

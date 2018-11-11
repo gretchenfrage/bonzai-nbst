@@ -1,6 +1,7 @@
 
 pub mod bonzai;
 pub mod stdlib;
+pub mod boxy;
 
 use std::iter::IntoIterator;
 use std::fmt::Debug;
