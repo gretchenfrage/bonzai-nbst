@@ -126,7 +126,7 @@ fn remove_node<'o, 't: 'o, T: Ord>(mut node: NodeOwnedGuard<'o, 't, T, [ChildId;
                     (None, true)
                 },
                 (Some(left), None) => {
-                    // no children, simply remove self
+                    // only left child is present, become left child
                     (Some(left), true)
                 },
                 (None, Some(right)) => {
